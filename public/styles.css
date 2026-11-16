@@ -99,6 +99,15 @@ h1 { font-size: 26px; line-height: 1.2; letter-spacing: -0.02em; margin: 0 0 8px
 }
 .input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
 
+.form-dados { display: flex; flex-direction: column; gap: 14px; }
+.campo { display: flex; flex-direction: column; gap: 6px; }
+.campo > span { font-size: 14px; font-weight: 600; color: var(--ink-2); }
+.input.texto { font-size: 17px; letter-spacing: 0; }
+.input.tel { letter-spacing: .02em; }
+.btn.largo { width: 100%; margin-top: 4px; }
+.input[aria-invalid="true"] { border-color: var(--erro); }
+.form-dados .erro { margin: 0; }
+
 .cartao-pessoa {
   margin-top: 20px; padding: 18px; border-radius: var(--radius); background: var(--bg);
   border: 1px solid var(--line); display: flex; flex-direction: column; gap: 2px;

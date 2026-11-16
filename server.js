@@ -145,5 +145,4 @@ const HOST = process.env.HOST || '0.0.0.0';
 server.listen(PORT, HOST, () => {
   console.log(`OKAY Check-in rodando em http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}${HOST === '0.0.0.0' ? ' (todas as interfaces)' : ''}`);
   console.log(`Painel admin:           http://localhost:${PORT}/admin  (usuário: ${process.env.ADMIN_USER || 'admin'})`);
-  console.log(`Consulta de CPF:        ${process.env.CPF_PROVIDER || 'mock'}${process.env.CPF_PROVIDER === 'serpro' && process.env.SERPRO_TRIAL === 'true' ? ' (trial)' : ''}`);
 });

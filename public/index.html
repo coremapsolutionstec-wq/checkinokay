@@ -15,7 +15,7 @@
   </header>
 
   <ol class="passos" id="passos" hidden>
-    <li data-p="1">CPF</li>
+    <li data-p="1">Seus dados</li>
     <li data-p="2">Participantes</li>
     <li data-p="3">Termo</li>
     <li data-p="4">Selfie</li>
@@ -39,39 +39,47 @@
     <!-- Início -->
     <section class="tela" id="t-inicio">
       <h1>Olá! Vamos fazer seu check-in.</h1>
-      <p class="sub">Leva menos de um minuto. Você vai precisar do seu CPF, do CPF dos participantes e de uma selfie.</p>
+      <p class="sub">Leva menos de um minuto. Você vai precisar do seu CPF, nome e telefone, do CPF e nome dos participantes e de uma selfie.</p>
       <button class="btn primario" id="btnIniciar">Iniciar check-in</button>
     </section>
 
-    <!-- Passo 1: CPF do titular -->
+    <!-- Passo 1: dados do titular -->
     <section class="tela" id="t-cpf">
-      <h1>Qual é o seu CPF?</h1>
-      <p class="sub">Vamos buscar seu nome completo na base da Receita Federal.</p>
-      <form id="formCpf" class="campo-linha" autocomplete="off" novalidate>
-        <input id="cpfTitular" class="input cpf" inputmode="numeric" placeholder="000.000.000-00" maxlength="14" aria-label="CPF" required>
-        <button class="btn primario" type="submit">Buscar</button>
+      <h1>Seus dados</h1>
+      <p class="sub">Preencha seus dados para o check-in.</p>
+      <form id="formTitular" class="form-dados" autocomplete="on" novalidate>
+        <label class="campo">
+          <span>CPF</span>
+          <input id="cpfTitular" class="input cpf" inputmode="numeric" placeholder="000.000.000-00" maxlength="14" autocomplete="off" required>
+        </label>
+        <label class="campo">
+          <span>Nome completo</span>
+          <input id="nomeTitular" class="input texto" placeholder="Como no seu documento" maxlength="120" autocomplete="name" autocapitalize="words" required>
+        </label>
+        <label class="campo">
+          <span>Telefone (WhatsApp)</span>
+          <input id="telTitular" class="input tel" type="tel" inputmode="tel" placeholder="(11) 98765-4321" maxlength="15" autocomplete="tel-national" required>
+        </label>
+        <p class="erro" id="erroCpf" role="alert"></p>
+        <button class="btn primario largo" type="submit">Continuar</button>
       </form>
-      <p class="erro" id="erroCpf" role="alert"></p>
-
-      <div class="cartao-pessoa" id="cartaoTitular" hidden>
-        <span class="rotulo">Nome encontrado</span>
-        <strong class="nome" id="nomeTitular"></strong>
-        <span class="detalhe" id="detTitular"></span>
-        <div class="acoes">
-          <button class="btn secundario" id="btnNaoSou">Não sou eu</button>
-          <button class="btn primario" id="btnSouEu">Sou eu, continuar</button>
-        </div>
-      </div>
     </section>
 
     <!-- Passo 2: Participantes -->
     <section class="tela" id="t-participantes">
       <h1>Quem vai com você?</h1>
-      <p class="sub">Adicione os participantes pelo CPF. Se estiver sozinho, é só continuar.</p>
+      <p class="sub">Adicione os participantes com CPF e nome. Se estiver sozinho, é só continuar.</p>
       <ul class="lista-pessoas" id="listaPessoas"></ul>
-      <form id="formPart" class="campo-linha" autocomplete="off" novalidate>
-        <input id="cpfPart" class="input cpf" inputmode="numeric" placeholder="CPF do participante" maxlength="14" aria-label="CPF do participante">
-        <button class="btn secundario" type="submit">Adicionar</button>
+      <form id="formPart" class="form-dados" autocomplete="off" novalidate>
+        <label class="campo">
+          <span>CPF do participante</span>
+          <input id="cpfPart" class="input cpf" inputmode="numeric" placeholder="000.000.000-00" maxlength="14">
+        </label>
+        <label class="campo">
+          <span>Nome completo do participante</span>
+          <input id="nomePart" class="input texto" placeholder="Nome e sobrenome" maxlength="120" autocapitalize="words">
+        </label>
+        <button class="btn secundario largo" type="submit">Adicionar participante</button>
       </form>
       <p class="erro" id="erroPart" role="alert"></p>
       <p class="dica" id="capacidade"></p>

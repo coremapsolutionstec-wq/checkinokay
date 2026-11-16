@@ -26,7 +26,7 @@
     table { width: 100%; border-collapse: collapse; font-size: 14px; }
     th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
     th { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-2); font-weight: 600; }
-    td img { width: 64px; height: 64px; object-fit: cover; border-radius: 10px; cursor: zoom-in; display: block; }
+    td img { width: 64px; height: 64px; object-fit: cover; border-radius: 10px; cursor: zoom-in; display: block; background: var(--line); }
     .pill { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--bg); border: 1px solid var(--line); margin: 2px 2px 0 0; }
     .barra { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
     .barra .input { font-size: 15px; letter-spacing: 0; min-height: 42px; max-width: 280px; }
@@ -46,8 +46,21 @@
 <body>
   <header class="topo">
     <div class="marca">OKAY<span>.</span> <small style="font-size:14px;font-weight:600;color:var(--ink-2);letter-spacing:0">admin</small></div>
+    <button class="btn fantasma" id="btnSair" hidden>Sair</button>
   </header>
   <main>
+    <section class="bloco" id="login" hidden>
+      <h2>Entrar no painel</h2>
+      <p class="dica" style="margin:0 0 16px">Use o usuário e a senha do administrador.</p>
+      <form id="formLogin" class="form-dados" style="max-width:360px">
+        <label class="campo"><span>Usuário</span><input class="input texto" name="usuario" value="admin" autocomplete="username" required></label>
+        <label class="campo"><span>Senha</span><input class="input texto" name="senha" type="password" autocomplete="current-password" required></label>
+        <p class="erro" id="erroLogin" role="alert"></p>
+        <button class="btn primario largo" type="submit">Entrar</button>
+      </form>
+    </section>
+
+    <div id="painel" hidden>
     <section class="bloco">
       <h2>QR Codes dos espaços</h2>
       <p class="dica" style="margin:0">Imprima e fixe na entrada. O check-in só começa com a leitura de um QR Code válido.</p>
@@ -63,7 +76,7 @@
     <section class="bloco">
       <div class="barra">
         <h2>Check-ins</h2>
-        <input class="input" id="busca" placeholder="Buscar nome, CPF ou espaço">
+        <input class="input" id="busca" placeholder="Buscar nome, CPF, telefone ou espaço">
       </div>
       <div class="tabela-wrap">
         <table>
@@ -72,6 +85,7 @@
         </table>
       </div>
     </section>
+    </div>
   </main>
   <dialog id="zoom"><img alt="Selfie ampliada"></dialog>
 
@@ -79,16 +93,72 @@
     const $ = (s) => document.querySelector(s);
     const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const fmtCpf = (c) => c.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+    const fmtTel = (t) => !t ? '' : t.length === 11 ? t.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3') : t.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
     let checkins = [];
 
-    // O painel é público; os dados exigem login (o navegador mostra a janela de usuário/senha).
-    async function apiAdmin(caminho, opcoes) {
-      const r = await fetch(location.origin + caminho, opcoes);
+    // A página é pública; os dados exigem login. A credencial fica só nesta aba (sessionStorage).
+    let credencial = null;
+    try { credencial = sessionStorage.getItem('okay-admin'); } catch { /* armazenamento indisponível */ }
+    let atualizador = 0;
+    const selfiesCache = new Map(); // arquivo -> URL local da imagem
+
+    async function apiAdmin(caminho, opcoes = {}) {
+      const r = await fetch(location.origin + caminho, { ...opcoes, headers: { ...(opcoes.headers || {}), Authorization: 'Basic ' + credencial } });
       if (r.status === 401) {
-        document.querySelector('main').innerHTML = '<section class="bloco"><h2>Acesso restrito</h2><p class="dica">Usuário ou senha incorretos.</p><button class="btn primario" onclick="location.reload()">Entrar novamente</button></section>';
+        mostrarLogin('Usuário ou senha incorretos.');
         throw new Error('não autorizado');
       }
       return r;
+    }
+
+    function mostrarLogin(erro = '') {
+      clearInterval(atualizador);
+      credencial = null;
+      try { sessionStorage.removeItem('okay-admin'); } catch { /* ok */ }
+      $('#painel').hidden = true;
+      $('#btnSair').hidden = true;
+      $('#login').hidden = false;
+      $('#erroLogin').textContent = erro;
+      $('#formLogin [name=senha]').value = '';
+      $('#formLogin [name=senha]').focus();
+    }
+
+    async function abrirPainel() {
+      await carregarLocais();
+      $('#login').hidden = true;
+      $('#painel').hidden = false;
+      $('#btnSair').hidden = false;
+      await carregarCheckins();
+      clearInterval(atualizador);
+      atualizador = setInterval(() => carregarCheckins().catch(() => {}), 15000);
+    }
+
+    $('#formLogin').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const f = new FormData(ev.target);
+      const bytes = new TextEncoder().encode(`${f.get('usuario')}:${f.get('senha')}`);
+      credencial = btoa(String.fromCharCode(...bytes));
+      const btn = ev.target.querySelector('button');
+      btn.disabled = true;
+      try {
+        await abrirPainel();
+        try { sessionStorage.setItem('okay-admin', credencial); } catch { /* ok */ }
+      } catch { /* mostrarLogin já exibiu o erro */ } finally { btn.disabled = false; }
+    });
+    $('#btnSair').addEventListener('click', () => mostrarLogin());
+
+    // Selfies exigem login: baixa com a credencial e mostra como imagem local.
+    async function carregarSelfies() {
+      for (const img of document.querySelectorAll('img[data-selfie]')) {
+        const arq = img.dataset.selfie;
+        if (!selfiesCache.has(arq)) {
+          try {
+            const r = await apiAdmin('/selfies/' + encodeURIComponent(arq));
+            selfiesCache.set(arq, r.ok ? URL.createObjectURL(await r.blob()) : '');
+          } catch { return; }
+        }
+        if (selfiesCache.get(arq)) img.src = selfiesCache.get(arq);
+      }
     }
 
     async function carregarLocais() {
@@ -129,20 +199,21 @@
       if (r.ok) { ev.target.reset(); carregarLocais(); }
     });
 
-    function pessoa(p) { return `<strong>${esc(p.nome)}</strong><br><span class="dica" style="font-size:12px">${fmtCpf(p.cpf)}${p.manual ? ' · manual' : ''}</span>`; }
+    function pessoa(p) { return `<strong>${esc(p.nome)}</strong><br><span class="dica" style="font-size:12px">${fmtCpf(p.cpf)}${p.telefone ? ` · <a href="https://wa.me/55${esc(p.telefone)}" target="_blank" rel="noopener">${fmtTel(p.telefone)}</a>` : ''}</span>`; }
 
     function renderTabela() {
       const q = $('#busca').value.trim().toLowerCase().replace(/[.\-]/g, '');
       const lista = checkins.filter((c) => !q || JSON.stringify([c.local.nome, c.titular, c.participantes, c.id]).toLowerCase().includes(q));
       $('#corpoTabela').innerHTML = lista.length ? lista.map((c) => `
         <tr>
-          <td><img src="/selfies/${esc(c.selfie)}" alt="Selfie" loading="lazy"></td>
+          <td><img data-selfie="${esc(c.selfie)}" alt="Selfie"></td>
           <td>${new Date(c.data).toLocaleString('pt-BR')}</td>
           <td>${esc(c.local.nome)}</td>
           <td>${pessoa(c.titular)}</td>
           <td>${c.participantes.length ? c.participantes.map((p) => `<span class="pill">${esc(p.nome)} · ${fmtCpf(p.cpf)}</span>`).join('') : '<span class="dica">—</span>'}</td>
           <td><code>${esc(c.id)}</code></td>
         </tr>`).join('') : '<tr><td colspan="6" class="dica">Nenhum check-in ainda.</td></tr>';
+      carregarSelfies();
     }
 
     async function carregarCheckins() {
@@ -152,14 +223,14 @@
 
     $('#busca').addEventListener('input', renderTabela);
     $('#corpoTabela').addEventListener('click', (ev) => {
-      if (ev.target.tagName !== 'IMG') return;
+      if (ev.target.tagName !== 'IMG' || !ev.target.src) return;
       $('#zoom img').src = ev.target.src;
       $('#zoom').showModal();
     });
     $('#zoom').addEventListener('click', () => $('#zoom').close());
 
-    // Em sequência: a primeira chamada pede o login, as seguintes reaproveitam.
-    carregarLocais().then(carregarCheckins).then(() => setInterval(() => carregarCheckins().catch(() => {}), 15000)).catch(() => {});
+    if (credencial) abrirPainel().catch(() => {});
+    else mostrarLogin();
   </script>
 </body>
 </html>

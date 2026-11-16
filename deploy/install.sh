@@ -104,6 +104,5 @@ if [[ -n "$NOVA_SENHA" ]]; then
 fi
 echo
 echo "Próximos passos:"
-echo "  1. Coloque as chaves do SERPRO em $DIR/.env (SERPRO_TRIAL=false) e rode: sudo systemctl restart checkinokay"
-echo "  2. Imprima os QR Codes pelo /admin"
-echo "  3. Logs: journalctl -u checkinokay -f"
+echo "  1. Imprima os QR Codes pelo /admin"
+echo "  2. Logs: journalctl -u checkinokay -f"

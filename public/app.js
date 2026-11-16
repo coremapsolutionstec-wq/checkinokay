@@ -7,8 +7,8 @@
 
   const estado = {
     local: null,
-    titular: null,          // { cpf, cpfMascarado, nome, situacao, token }
-    participantes: [],
+    titular: null,          // { cpf, nome, telefone }
+    participantes: [],      // [{ cpf, nome }]
     selfie: null,           // dataURL
     stream: null,
   };
@@ -70,21 +70,32 @@
     btn.classList.toggle('carregando', sim);
   }
 
+  function mascaraTel(v) {
+    const d = v.replace(/\D/g, '').slice(0, 11);
+    if (d.length <= 2) return d.length ? `(${d}` : '';
+    if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+    if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+    return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+  }
+  const limparNome = (v) => v.replace(/\s+/g, ' ').trim();
+  const nomeValido = (n) => /^[\p{L}][\p{L}' -]*$/u.test(n) && n.split(' ').filter((p) => p.length >= 2).length >= 2;
+  const telefoneValido = (d) => /^[1-9]{2}9?\d{8}$/.test(d) && (d.length === 10 || d[2] === '9');
+  const cpfMascarado = (c) => `***.${c.slice(3, 6)}.${c.slice(6, 9)}-**`;
+
   document.querySelectorAll('input.cpf').forEach((inp) => {
     inp.addEventListener('input', () => { inp.value = mascaraCpf(inp.value); });
   });
+  document.querySelectorAll('input.tel').forEach((inp) => {
+    inp.addEventListener('input', () => { inp.value = mascaraTel(inp.value); });
+  });
   document.querySelectorAll('[data-voltar]').forEach((b) => b.addEventListener('click', () => mostrar(b.dataset.voltar)));
 
-  async function consultar(cpf) {
-    try {
-      return await api('/api/cpf', { cpf, l: QR.l, k: QR.k });
-    } catch (e) {
-      if (e.dados?.permiteManual) {
-        const nome = prompt(`${e.message}\n\nDigite o nome completo para o CPF ${mascaraCpf(cpf)}:`);
-        if (nome && nome.trim()) return api('/api/cpf', { cpf, l: QR.l, k: QR.k, nomeManual: nome });
-      }
-      throw e;
-    }
+  // Marca o campo com erro e mostra a mensagem
+  function erroCampo(alvoErro, inp, msg) {
+    $(alvoErro).textContent = msg;
+    inp.setAttribute('aria-invalid', 'true');
+    inp.focus();
+    inp.addEventListener('input', () => inp.removeAttribute('aria-invalid'), { once: true });
   }
 
   // ------------------------------------------------------------------ início
@@ -106,39 +117,22 @@
     setTimeout(() => $('#cpfTitular').focus(), 250);
   });
 
-  // ------------------------------------------------------------ passo 1: CPF
-  $('#formCpf').addEventListener('submit', async (ev) => {
+  // ------------------------------------------------- passo 1: dados do titular
+  $('#formTitular').addEventListener('submit', (ev) => {
     ev.preventDefault();
-    const inp = $('#cpfTitular');
-    const btn = ev.submitter || $('#formCpf button');
     $('#erroCpf').textContent = '';
-    $('#cartaoTitular').hidden = true;
-    if (!cpfValido(inp.value)) { $('#erroCpf').textContent = 'CPF inválido. Confira os números digitados.'; inp.focus(); return; }
-    carregando(btn, true);
-    try {
-      const p = await consultar(inp.value);
-      estado.titular = p;
-      $('#nomeTitular').textContent = p.nome;
-      $('#detTitular').textContent = `CPF ${p.cpfMascarado}${p.situacao ? ' · ' + p.situacao : ''}`;
-      $('#cartaoTitular').hidden = false;
-      $('#btnSouEu').focus();
-    } catch (e) {
-      $('#erroCpf').textContent = e.message;
-    } finally {
-      carregando(btn, false);
-    }
-  });
-
-  $('#btnNaoSou').addEventListener('click', () => {
-    estado.titular = null;
-    $('#cartaoTitular').hidden = true;
-    const inp = $('#cpfTitular');
-    inp.value = '';
-    inp.focus();
-  });
-
-  $('#btnSouEu').addEventListener('click', () => {
-    estado.participantes = estado.participantes.filter((p) => p.cpf !== estado.titular.cpf);
+    const cpfInp = $('#cpfTitular');
+    const nomeInp = $('#nomeTitular');
+    const telInp = $('#telTitular');
+    const cpf = cpfInp.value.replace(/\D/g, '');
+    const nome = limparNome(nomeInp.value);
+    const telefone = telInp.value.replace(/\D/g, '');
+    if (!cpfValido(cpf)) return erroCampo('#erroCpf', cpfInp, 'CPF inválido. Confira os números digitados.');
+    if (!nomeValido(nome)) return erroCampo('#erroCpf', nomeInp, 'Informe seu nome completo (nome e sobrenome).');
+    if (!telefoneValido(telefone)) return erroCampo('#erroCpf', telInp, 'Telefone inválido. Informe DDD + número.');
+    nomeInp.value = nome;
+    estado.titular = { cpf, nome, telefone };
+    estado.participantes = estado.participantes.filter((p) => p.cpf !== cpf);
     renderPessoas();
     mostrar('t-participantes');
   });
@@ -149,14 +143,13 @@
     $('#listaPessoas').innerHTML = todos.map((p, i) => `
       <li class="${p.titular ? 'titular' : ''}">
         <span class="avatar">${esc(iniciais(p.nome))}</span>
-        <span class="pessoa-info"><strong>${esc(titulo(p.nome))}</strong><span>${p.titular ? 'Titular' : 'Participante'} · CPF ${esc(p.cpfMascarado)}</span></span>
+        <span class="pessoa-info"><strong>${esc(titulo(p.nome))}</strong><span>${p.titular ? 'Titular' : 'Participante'} · CPF ${esc(cpfMascarado(p.cpf))}</span></span>
         ${p.titular ? '' : `<button class="remover" data-i="${i - 1}" aria-label="Remover ${esc(titulo(p.nome))}">×</button>`}
       </li>`).join('');
     const cap = estado.local.capacidade;
     const cheio = todos.length >= cap;
     $('#capacidade').textContent = `${todos.length} de ${cap} pessoas (capacidade do espaço).`;
-    $('#cpfPart').disabled = cheio;
-    $('#formPart button').disabled = cheio;
+    $('#formPart').querySelectorAll('input, button').forEach((el) => { el.disabled = cheio; });
   }
 
   $('#listaPessoas').addEventListener('click', (ev) => {
@@ -166,33 +159,26 @@
     renderPessoas();
   });
 
-  $('#formPart').addEventListener('submit', async (ev) => {
+  $('#formPart').addEventListener('submit', (ev) => {
     ev.preventDefault();
-    const inp = $('#cpfPart');
-    const btn = $('#formPart button');
-    const erro = $('#erroPart');
-    erro.textContent = '';
-    const cpf = inp.value.replace(/\D/g, '');
-    if (!cpfValido(cpf)) { erro.textContent = 'CPF inválido. Confira os números digitados.'; inp.focus(); return; }
-    if (cpf === estado.titular.cpf || estado.participantes.some((p) => p.cpf === cpf)) { erro.textContent = 'Este CPF já está na lista.'; inp.value = ''; return; }
-    carregando(btn, true);
-    try {
-      const p = await consultar(cpf);
-      estado.participantes.push(p);
-      inp.value = '';
-      renderPessoas();
-      inp.focus();
-    } catch (e) {
-      erro.textContent = e.message;
-    } finally {
-      carregando(btn, false);
-      renderPessoas();
-    }
+    const cpfInp = $('#cpfPart');
+    const nomeInp = $('#nomePart');
+    $('#erroPart').textContent = '';
+    const cpf = cpfInp.value.replace(/\D/g, '');
+    const nome = limparNome(nomeInp.value);
+    if (!cpfValido(cpf)) return erroCampo('#erroPart', cpfInp, 'CPF do participante inválido. Confira os números digitados.');
+    if (cpf === estado.titular.cpf || estado.participantes.some((p) => p.cpf === cpf)) return erroCampo('#erroPart', cpfInp, 'Este CPF já está na lista.');
+    if (!nomeValido(nome)) return erroCampo('#erroPart', nomeInp, 'Informe o nome completo do participante.');
+    estado.participantes.push({ cpf, nome });
+    cpfInp.value = '';
+    nomeInp.value = '';
+    renderPessoas();
+    cpfInp.focus();
   });
 
   $('#btnParaTermo').addEventListener('click', async () => {
-    if ($('#cpfPart').value.replace(/\D/g, '').length) {
-      $('#erroPart').textContent = 'Toque em "Adicionar" para incluir o CPF digitado, ou apague o campo.';
+    if ($('#cpfPart').value.replace(/\D/g, '').length || $('#nomePart').value.trim()) {
+      $('#erroPart').textContent = 'Toque em "Adicionar participante" para incluir os dados digitados, ou apague os campos.';
       return;
     }
     await carregarTermo();
@@ -333,8 +319,8 @@
       const r = await api('/api/checkin', {
         l: QR.l,
         k: QR.k,
-        // Comprovantes assinados pelo servidor na consulta de cada CPF (titular primeiro)
-        pessoas: [estado.titular, ...estado.participantes].map((p) => p.token),
+        titular: estado.titular,
+        participantes: estado.participantes,
         aceite: $('#aceite').checked,
         selfie: estado.selfie,
       });
