@@ -1,0 +1,17 @@
+# Caddy: gera e renova o certificado HTTPS (Let's Encrypt) automaticamente.
+# O install.sh troca SEU_DOMINIO pelo domínio informado.
+SEU_DOMINIO {
+	encode gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+
+	# Selfies chegam em base64; 10 MB é folga suficiente
+	request_body {
+		max_size 10MB
+	}
+
+	reverse_proxy 127.0.0.1:3000
+}

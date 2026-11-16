@@ -128,7 +128,16 @@ function exigirAdmin(req, res) {
   return false;
 }
 
-const ipDe = (req) => (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress;
+// Atrás de um proxy (Caddy, Cloudflare Tunnel), o IP real vem no X-Forwarded-For.
+// Só confiamos nesse cabeçalho com TRUST_PROXY=true; senão qualquer cliente poderia forjá-lo.
+const TRUST_PROXY = process.env.TRUST_PROXY === 'true';
+function ipDe(req) {
+  if (TRUST_PROXY) {
+    const xff = (req.headers['x-forwarded-for'] || '').split(',').map((s) => s.trim()).filter(Boolean);
+    if (xff.length) return xff[xff.length - 1]; // valor adicionado pelo proxy mais próximo
+  }
+  return req.socket.remoteAddress;
+}
 
 // ------------------------------------------------------------------ rotas
 async function api(req, res, url) {
@@ -221,7 +230,7 @@ async function api(req, res, url) {
     if (!exigirAdmin(req, res)) return;
 
     if (rota === 'GET /api/admin/locais') {
-      const base = (process.env.PUBLIC_URL || `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host}`).replace(/\/$/, '');
+      const base = (process.env.PUBLIC_URL || `${(TRUST_PROXY && req.headers['x-forwarded-proto']) || 'http'}://${req.headers.host}`).replace(/\/$/, '');
       return json(res, 200, locais().map((l) => ({ ...l, url: `${base}/?l=${encodeURIComponent(l.id)}&k=${assinar(l.id)}` })));
     }
 
@@ -254,6 +263,10 @@ async function api(req, res, url) {
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer'); // não vaza a chave do QR Code para outros sites
+  res.setHeader('Permissions-Policy', 'camera=(self), microphone=(), geolocation=()');
   try {
     if (url.pathname.startsWith('/api/')) return await api(req, res, url);
 
@@ -279,8 +292,10 @@ const server = http.createServer(async (req, res) => {
 });
 
 const PORT = Number(process.env.PORT) || 3000;
-server.listen(PORT, () => {
-  console.log(`OKAY Check-in rodando em http://localhost:${PORT}`);
+// Em produção use HOST=127.0.0.1: só o proxy local (Caddy/cloudflared) alcança o Node.
+const HOST = process.env.HOST || '0.0.0.0';
+server.listen(PORT, HOST, () => {
+  console.log(`OKAY Check-in rodando em http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}${HOST === '0.0.0.0' ? ' (todas as interfaces)' : ''}`);
   console.log(`Painel admin:           http://localhost:${PORT}/admin  (usuário: ${ADMIN_USER})`);
   console.log(`Consulta de CPF:        ${process.env.CPF_PROVIDER || 'mock'}${process.env.CPF_PROVIDER === 'serpro' && process.env.SERPRO_TRIAL === 'true' ? ' (trial)' : ''}`);
 });

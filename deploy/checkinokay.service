@@ -1,0 +1,24 @@
+[Unit]
+Description=OKAY Check-in
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=checkinokay
+Group=checkinokay
+WorkingDirectory=/opt/checkinokay
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=3
+Environment=NODE_ENV=production
+
+# Isolamento: o processo só consegue gravar na pasta data/
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/checkinokay/data
+
+[Install]
+WantedBy=multi-user.target
