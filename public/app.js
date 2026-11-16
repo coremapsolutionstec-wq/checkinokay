@@ -25,6 +25,7 @@
       li.classList.toggle('atual', passo === n);
     });
     if (id !== 't-selfie') pararCamera();
+    if (id !== 't-qr') pararLeitor();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -88,17 +89,183 @@
   }
 
   // ------------------------------------------------------------------ início
+  // Com ?l=&k= na URL (QR lido pela câmera nativa do celular), vai para a tela de boas-vindas.
+  // Sem eles, a primeira tela é o leitor de QR Code.
+  let viaLeitor = false;
+
+  async function carregarLocal(l, k) {
+    const local = await api(`/api/local?l=${encodeURIComponent(l)}&k=${encodeURIComponent(k)}`);
+    QR.l = l;
+    QR.k = k;
+    estado.local = local;
+    $('#nomeLocal').textContent = local.nome;
+    document.title = `Check-in · ${local.nome}`;
+    return local;
+  }
+
   async function iniciar() {
-    if (!QR.l || !QR.k) return mostrar('t-qr');
+    if (!QR.l || !QR.k) return abrirLeitor();
     try {
-      estado.local = await api(`/api/local?l=${encodeURIComponent(QR.l)}&k=${encodeURIComponent(QR.k)}`);
-      $('#nomeLocal').textContent = estado.local.nome;
-      document.title = `Check-in · ${estado.local.nome}`;
+      await carregarLocal(QR.l, QR.k);
       mostrar('t-inicio');
     } catch (e) {
-      $('#msgQr').textContent = e.message;
-      mostrar('t-qr');
+      history.replaceState(null, '', location.pathname);
+      abrirLeitor(e.message);
     }
+  }
+
+  // ------------------------------------------------------------ leitor de QR
+  const leitor = { stream: null, ativo: false, timer: 0, detector: null, ultimo: '', ultimoEm: 0, ocupado: false };
+  const videoQr = $('#videoQr');
+
+  function msgLeitor(html) {
+    const m = $('#leitorMsg');
+    m.hidden = !html;
+    m.innerHTML = html || '';
+  }
+
+  function pararLeitor() {
+    leitor.ativo = false;
+    clearTimeout(leitor.timer);
+    if (leitor.stream) { leitor.stream.getTracks().forEach((t) => t.stop()); leitor.stream = null; }
+  }
+
+  function carregarJsQR() {
+    if (window.jsQR) return Promise.resolve();
+    return new Promise((ok, falha) => {
+      const s = document.createElement('script');
+      s.src = '/vendor/jsQR.js';
+      s.onload = ok;
+      s.onerror = falha;
+      document.head.appendChild(s);
+    });
+  }
+
+  async function abrirLeitor(erro = '') {
+    mostrar('t-qr');
+    $('#nomeLocal').textContent = '';
+    $('#erroQr').textContent = erro;
+    $('.camera.leitor').classList.remove('lido');
+    msgLeitor('');
+    if (!navigator.mediaDevices?.getUserMedia) {
+      msgLeitor('<div>Este navegador não consegue abrir a câmera aqui.<br>Use a câmera do celular para ler o QR Code.</div>');
+      return;
+    }
+    try {
+      // Detector nativo (Android/Chrome) quando existir; senão, jsQR.
+      if (!leitor.detector && 'BarcodeDetector' in window) {
+        const formatos = await window.BarcodeDetector.getSupportedFormats().catch(() => []);
+        if (formatos.includes('qr_code')) leitor.detector = new window.BarcodeDetector({ formats: ['qr_code'] });
+      }
+      if (!leitor.detector) await carregarJsQR();
+      pararLeitor();
+      leitor.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } }, audio: false });
+    } catch (e) {
+      const negado = e && e.name === 'NotAllowedError';
+      msgLeitor(`<div>${negado ? 'Permita o acesso à câmera para ler o QR Code.' : 'Não foi possível abrir a câmera.'}<br><button class="btn" id="btnTentarLeitor">Tentar de novo</button></div>`);
+      return;
+    }
+    videoQr.srcObject = leitor.stream;
+    videoQr.play().catch(() => {});
+    leitor.ativo = true;
+    escanear();
+  }
+
+  $('#leitorMsg').addEventListener('click', (ev) => {
+    if (ev.target.id === 'btnTentarLeitor') abrirLeitor();
+  });
+
+  const canvasQr = document.createElement('canvas');
+  const ctxQr = canvasQr.getContext('2d', { willReadFrequently: true });
+
+  async function escanear() {
+    if (!leitor.ativo) return;
+    if (!leitor.ocupado && videoQr.readyState >= 2 && videoQr.videoWidth) {
+      let texto = null;
+      try {
+        if (leitor.detector) {
+          texto = (await leitor.detector.detect(videoQr))[0]?.rawValue || null;
+        } else if (window.jsQR) {
+          const w = Math.min(640, videoQr.videoWidth);
+          const h = Math.round((videoQr.videoHeight * w) / videoQr.videoWidth);
+          canvasQr.width = w;
+          canvasQr.height = h;
+          ctxQr.drawImage(videoQr, 0, 0, w, h);
+          texto = window.jsQR(ctxQr.getImageData(0, 0, w, h).data, w, h, { inversionAttempts: 'attemptBoth' })?.data || null;
+        }
+      } catch { /* quadro ilegível: tenta o próximo */ }
+      if (texto) await tratarQr(texto);
+    }
+    if (leitor.ativo) leitor.timer = setTimeout(escanear, 120);
+  }
+
+  async function tratarQr(texto) {
+    // Não revalida o mesmo QR inválido sem parar (a câmera lê várias vezes por segundo).
+    if (texto === leitor.ultimo && Date.now() - leitor.ultimoEm < 4000) return;
+    leitor.ultimo = texto;
+    leitor.ultimoEm = Date.now();
+
+    let u;
+    try { u = new URL(texto, location.href); } catch { u = null; }
+    const l = u?.searchParams.get('l');
+    const k = u?.searchParams.get('k');
+    if (!l || !k) { $('#erroQr').textContent = 'Este QR Code não é de um espaço OKAY.'; return; }
+
+    leitor.ocupado = true;
+    try {
+      await carregarLocal(l, k);
+    } catch (e) {
+      $('#erroQr').textContent = e.message;
+      leitor.ocupado = false;
+      return;
+    }
+    leitor.ocupado = false;
+    $('#erroQr').textContent = '';
+    $('.camera.leitor').classList.add('lido');
+    navigator.vibrate?.(60);
+    pararLeitor();
+    viaLeitor = true;
+    history.replaceState(null, '', `${location.pathname}?l=${encodeURIComponent(l)}&k=${encodeURIComponent(k)}`);
+    setTimeout(() => {
+      mostrar('t-cpf');
+      setTimeout(() => $('#cpfTitular').focus(), 250);
+    }, 350);
+  }
+
+  // Volta ao leitor para o próximo cliente (uso em tablet na entrada).
+  let contagemTimer = 0;
+  function novoCheckin() {
+    clearInterval(contagemTimer);
+    estado.titular = null;
+    estado.participantes = [];
+    estado.selfie = null;
+    estado.local = null;
+    QR.l = null;
+    QR.k = null;
+    for (const id of ['#cpfTitular', '#cpfPart']) $(id).value = '';
+    for (const id of ['#erroCpf', '#erroPart', '#erroSelfie']) $(id).textContent = '';
+    $('#cartaoTitular').hidden = true;
+    $('#aceite').checked = false;
+    $('#btnConfirmar').disabled = true;
+    $('#novoCheckin').hidden = true;
+    document.title = 'Check-in OKAY';
+    history.replaceState(null, '', location.pathname);
+    leitor.ultimo = '';
+    abrirLeitor();
+  }
+  $('#btnNovo').addEventListener('click', novoCheckin);
+
+  function agendarNovoCheckin(segundos = 20) {
+    $('#novoCheckin').hidden = false;
+    let resta = segundos;
+    const atualizar = () => { $('#contagem').textContent = `Voltando ao leitor em ${resta}s…`; };
+    atualizar();
+    clearInterval(contagemTimer);
+    contagemTimer = setInterval(() => {
+      resta -= 1;
+      if (resta <= 0) novoCheckin();
+      else atualizar();
+    }, 1000);
   }
 
   $('#btnIniciar').addEventListener('click', () => {
@@ -348,8 +515,8 @@
       estado.titular = null;
       estado.participantes = [];
       estado.selfie = null;
-      history.replaceState(null, '', location.pathname + location.search);
       mostrar('t-fim');
+      if (viaLeitor) agendarNovoCheckin();
     } catch (e) {
       $('#erroSelfie').textContent = e.message;
     } finally {
@@ -358,6 +525,6 @@
     }
   });
 
-  window.addEventListener('pagehide', pararCamera);
+  window.addEventListener('pagehide', () => { pararCamera(); pararLeitor(); });
   iniciar();
 })();

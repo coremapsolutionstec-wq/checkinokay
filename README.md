@@ -39,7 +39,7 @@ O token do provedor fica só no servidor. Os nomes salvos no check-in vêm do se
 
 Os celulares só liberam a câmera para a selfie em **HTTPS**. O sistema grava os dados em disco (`data/`), então precisa de um servidor com disco que não se apague, como um VPS.
 
-### Netlify (publicado em https://acknowledge-f8fa5d.netlify.app)
+### Netlify (publicado em https://checkinokay.netlify.app)
 
 No Netlify não existe disco, então as páginas ficam em `public/`, a API roda como função ([netlify/functions/api.mjs](netlify/functions/api.mjs)) e check-ins, selfies e espaços ficam no **Netlify Blobs** (loja `okay-checkin`). O HTTPS é automático.
 

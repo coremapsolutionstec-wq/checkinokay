@@ -27,13 +27,17 @@
       <div class="spinner" aria-label="Carregando"></div>
     </section>
 
-    <!-- Sem QR / QR inválido -->
+    <!-- Primeira tela: leitor de QR Code -->
     <section class="tela" id="t-qr">
-      <div class="icone-grande" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 17h4v4h-4"/></svg>
+      <h1>Leia o QR Code da entrada</h1>
+      <p class="sub">Aponte a câmera para o QR Code fixado no espaço para começar o check-in.</p>
+      <div class="camera leitor">
+        <video id="videoQr" playsinline autoplay muted></video>
+        <div class="mira" aria-hidden="true"><span></span></div>
+        <div class="camera-msg" id="leitorMsg" hidden></div>
       </div>
-      <h1>Escaneie o QR Code</h1>
-      <p class="sub" id="msgQr">Para fazer o check-in, aponte a câmera do seu celular para o QR Code na entrada do espaço.</p>
+      <p class="erro" id="erroQr" role="alert"></p>
+      <p class="dica">Também funciona com a câmera do próprio celular: é só apontar para o QR Code.</p>
     </section>
 
     <!-- Início -->
@@ -122,6 +126,10 @@
       <p class="sub" id="subFim"></p>
       <ul class="lista-nomes" id="nomesFim"></ul>
       <p class="dica" id="codigoFim"></p>
+      <div id="novoCheckin" hidden>
+        <button class="btn primario" id="btnNovo">Novo check-in</button>
+        <p class="dica" id="contagem"></p>
+      </div>
     </section>
   </main>
 

@@ -154,6 +154,19 @@ h1 { font-size: 26px; line-height: 1.2; letter-spacing: -0.02em; margin: 0 0 8px
 }
 .camera-msg .btn { margin-top: 14px; background: #fff; color: #111; }
 
+.camera.leitor { aspect-ratio: 1 / 1; max-height: 56dvh; }
+.camera.leitor video { transform: none; }
+.mira { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
+.mira span {
+  width: 62%; aspect-ratio: 1; border-radius: 18px;
+  box-shadow: 0 0 0 9999px rgba(0,0,0,.35);
+  border: 3px solid var(--accent);
+  animation: pulsar 1.6s ease-in-out infinite;
+}
+@keyframes pulsar { 50% { transform: scale(1.03); border-color: #fff; } }
+.camera.lido .mira span { border-color: var(--ok); animation: none; }
+#novoCheckin { margin-top: 24px; }
+#novoCheckin .btn { width: 100%; max-width: 280px; }
 .icone-grande { color: var(--accent); margin-bottom: 12px; }
 #t-qr, #t-fim { text-align: center; padding-top: 40px; padding-bottom: 40px; }
 
