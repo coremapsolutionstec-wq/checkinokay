@@ -13,8 +13,22 @@ cp .env.example .env     # ajuste ADMIN_PASSWORD
 npm start
 ```
 
-- Painel admin (QR Codes, espaços e check-ins): `http://localhost:3000/admin`
+- Painel admin (QR Codes e espaços): `http://localhost:3000/admin`
+- Consulta de check-ins (aceites e fotos): `http://localhost:3000/consulta`, com o mesmo login do admin
 - Cada espaço tem um QR Code assinado (`/?l=<espaço>&k=<assinatura>`). Sem um QR válido, o check-in não abre.
+
+## Consulta de check-ins
+
+Em `/consulta` o administrador vê todos os check-ins agrupados por dia, com filtros por período, espaço e busca (nome, CPF, telefone ou código). Cada check-in abre uma ficha com:
+
+- selfie em tamanho grande, com botão para baixar;
+- titular (nome, CPF, telefone com link para WhatsApp) e participantes;
+- **aceite do termo**: data e hora (horário de Brasília), versão do termo, dispositivo e IP, e o **texto exato aceito**;
+- botão **Imprimir comprovante** (com foto, pessoas, aceite e o texto do termo).
+
+O botão **Exportar planilha** gera um CSV (abre no Excel) com os check-ins filtrados.
+
+Cada versão do termo é arquivada pelo hash no primeiro check-in que a usa (`termos/<hash>.md`), então mudar o texto do termo não altera o que foi aceito antes. Check-ins anteriores a esse arquivamento mostram só a versão (hash).
 
 ## Dados digitados
 
@@ -69,6 +83,7 @@ Se o navegador bloquear a câmera, o sistema oferece abrir a câmera nativa do c
 Tudo fica em `data/` (fora do git):
 
 - `locais.json`: espaços e capacidade
+- `termos/`: cada versão do termo aceita, pelo hash
 - `checkins.json`: registros (titular com telefone, participantes, aceite do termo com hash do texto, data, IP)
 - `selfies/`: fotos (acessíveis só pelo admin)
 - `termo.md`: texto do termo (edite à vontade; o padrão está em `lib/termo-padrao.js`)

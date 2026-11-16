@@ -38,6 +38,7 @@ const arquivo = (key) => {
 };
 function gravar(key, dados) {
   const p = arquivo(key);
+  fs.mkdirSync(path.dirname(p), { recursive: true });
   fs.writeFileSync(p + '.tmp', dados);
   fs.renameSync(p + '.tmp', p);
 }
@@ -125,8 +126,10 @@ const server = http.createServer(async (req, res) => {
       return res.end('{"erro":"Rota não encontrada"}');
     }
 
-    if (url.pathname === '/admin' || url.pathname === '/admin/' || url.pathname === '/admin.html') {
-      return servirArquivo(res, path.join(PUBLIC, 'admin.html'), { 'Cache-Control': 'no-store' });
+    for (const pagina of ['admin', 'consulta']) {
+      if (url.pathname === `/${pagina}` || url.pathname === `/${pagina}/` || url.pathname === `/${pagina}.html`) {
+        return servirArquivo(res, path.join(PUBLIC, `${pagina}.html`), { 'Cache-Control': 'no-store' });
+      }
     }
 
     const rel = url.pathname === '/' ? 'index.html' : decodeURIComponent(url.pathname).replace(/^\/+/, '');

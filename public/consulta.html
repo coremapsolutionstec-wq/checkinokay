@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Consulta de Check-ins</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+  <style>
+    main, .topo { max-width: 1100px; }
+    .topo nav { display: flex; gap: 4px; align-items: center; }
+    .topo nav a, .topo nav button { font-size: 14px; min-height: 40px; padding: 8px 12px; text-decoration: none; }
+    .bloco { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 20px; margin-bottom: 16px; box-shadow: var(--sombra); }
+    .bloco h2 { margin: 0 0 4px; font-size: 20px; }
+
+    /* Filtros */
+    .filtros { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+    .chip { border: 1.5px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 999px; padding: 7px 14px; font: inherit; font-size: 14px; cursor: pointer; }
+    .chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+    .filtros .input { font-size: 15px; letter-spacing: 0; min-height: 42px; padding: 8px 12px; }
+    .filtros select.input { flex: 0 1 200px; }
+    .filtros .busca { flex: 1 1 220px; }
+    .datas { display: flex; gap: 6px; align-items: center; font-size: 14px; color: var(--ink-2); }
+    .datas .input { flex: none; width: 150px; }
+    .filtros .btn { min-height: 42px; padding: 8px 16px; font-size: 14px; }
+
+    /* Resumo */
+    .resumo { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+    .tile { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; }
+    .tile span { display: block; font-size: 13px; color: var(--ink-2); }
+    .tile strong { font-size: 26px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+
+    /* Lista */
+    .dia { margin: 18px 0 8px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-2); display: flex; justify-content: space-between; }
+    .dia:first-child { margin-top: 0; }
+    .linha {
+      width: 100%; display: grid; grid-template-columns: 56px 64px 1fr auto; gap: 14px; align-items: center;
+      padding: 10px 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--bg);
+      font: inherit; color: inherit; text-align: left; cursor: pointer; margin-bottom: 8px;
+    }
+    .linha:hover { border-color: var(--ink-2); }
+    .linha:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 40%, transparent); }
+    .thumb { width: 56px; height: 56px; border-radius: 10px; object-fit: cover; background: var(--line); display: block; }
+    .hora { font-variant-numeric: tabular-nums; font-weight: 600; }
+    .quem strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .quem span { font-size: 13px; color: var(--ink-2); }
+    .selos { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+    .selo { font-size: 12px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); white-space: nowrap; }
+    .selo.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, transparent); }
+    .vazio { text-align: center; color: var(--ink-2); padding: 40px 0; }
+    .mais { display: block; margin: 12px auto 0; }
+
+    /* Ficha do check-in */
+    dialog#ficha { border: 0; padding: 0; border-radius: 20px; width: min(920px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); background: var(--card); color: var(--ink); box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+    dialog#ficha::backdrop { background: rgba(0,0,0,.55); }
+    .ficha { display: grid; grid-template-columns: 340px 1fr; }
+    .ficha-foto { background: #000; display: flex; flex-direction: column; }
+    .ficha-foto img { width: 100%; flex: 1; object-fit: contain; min-height: 300px; max-height: 70dvh; display: block; }
+    .ficha-foto .acoes-foto { display: flex; gap: 8px; padding: 10px; background: #111; }
+    .ficha-foto .acoes-foto a { flex: 1; text-align: center; color: #fff; border-color: #555; text-decoration: none; min-height: 40px; padding: 8px; font-size: 14px; }
+    .ficha-dados { padding: 22px; overflow-y: auto; max-height: calc(100dvh - 24px); }
+    .ficha-topo { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+    .ficha-topo h2 { margin: 0; font-size: 22px; }
+    .fechar { border: 0; background: var(--bg); color: var(--ink); width: 40px; height: 40px; border-radius: 50%; font-size: 22px; cursor: pointer; flex: none; }
+    .secao { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+    .secao h3 { margin: 0 0 10px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-2); }
+    .campos { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; font-size: 15px; }
+    .campos dt { color: var(--ink-2); }
+    .campos dd { margin: 0; overflow-wrap: anywhere; }
+    .pessoas-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+    .pessoas-lista li { padding: 8px 12px; border-radius: 10px; background: var(--bg); font-size: 15px; }
+    .pessoas-lista li span { color: var(--ink-2); font-size: 13px; }
+    .aceite-ok { display: flex; gap: 10px; align-items: center; padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, var(--ok) 12%, transparent); color: var(--ink); font-size: 15px; }
+    .aceite-ok b { color: var(--ok); font-size: 20px; }
+    .texto-termo { margin-top: 10px; max-height: 280px; overflow-y: auto; padding: 4px 14px 10px; border-radius: 12px; background: var(--bg); border: 1px solid var(--line); font-size: 13px; }
+    .texto-termo h1 { font-size: 15px; margin: 12px 0 6px; }
+    .texto-termo h2 { font-size: 13px; margin: 12px 0 4px; }
+    .texto-termo ul { padding-left: 18px; margin: 4px 0; }
+    .ficha-acoes { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+    .ficha-acoes .btn { min-height: 44px; padding: 10px 16px; font-size: 14px; }
+
+    #impressao { display: none; }
+    @media print {
+      body > *:not(#impressao) { display: none !important; }
+      #impressao { display: block; color: #000; background: #fff; font: 12pt/1.45 system-ui, sans-serif; }
+      #impressao img { max-width: 7cm; max-height: 9cm; border-radius: 6px; float: right; margin: 0 0 12px 16px; }
+      #impressao h1 { font-size: 18pt; margin: 0 0 4px; }
+      #impressao h2 { font-size: 12pt; margin: 16px 0 6px; border-bottom: 1px solid #ccc; padding-bottom: 3px; }
+      #impressao .termo-impresso { clear: both; font-size: 9.5pt; }
+      #impressao .termo-impresso h1 { font-size: 11pt; }
+      #impressao .termo-impresso h2 { font-size: 10pt; border: 0; }
+    }
+
+    @media (max-width: 760px) {
+      .ficha { grid-template-columns: 1fr; }
+      .ficha-foto img { max-height: 46dvh; min-height: 200px; }
+      .ficha-dados { max-height: none; }
+      dialog#ficha { overflow-y: auto; }
+      .linha { grid-template-columns: 48px 1fr; gap: 10px; }
+      .linha .thumb { width: 48px; height: 48px; grid-row: span 2; }
+      .linha .hora { font-size: 13px; color: var(--ink-2); grid-column: 2; grid-row: 2; }
+      .linha .quem { grid-column: 2; grid-row: 1; }
+      .linha .selos { grid-column: 1 / -1; justify-content: flex-start; }
+      .resumo { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+      .tile strong { font-size: 20px; }
+      .datas .input { width: 132px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topo">
+    <div class="marca">OKAY<span>.</span> <small style="font-size:14px;font-weight:600;color:var(--ink-2);letter-spacing:0">consulta</small></div>
+    <nav>
+      <a class="btn fantasma" href="/admin">QR Codes e espaços</a>
+      <button class="btn fantasma" id="btnSair" hidden>Sair</button>
+    </nav>
+  </header>
+
+  <main>
+    <section class="bloco" id="login" hidden>
+      <h2>Consulta de check-ins</h2>
+      <p class="dica" style="margin:0 0 16px">Entre com o usuário e a senha do administrador.</p>
+      <form id="formLogin" class="form-dados" style="max-width:360px">
+        <label class="campo"><span>Usuário</span><input class="input texto" name="usuario" value="admin" autocomplete="username" required></label>
+        <label class="campo"><span>Senha</span><input class="input texto" name="senha" type="password" autocomplete="current-password" required></label>
+        <p class="erro" id="erroLogin" role="alert"></p>
+        <button class="btn primario largo" type="submit">Entrar</button>
+      </form>
+    </section>
+
+    <div id="painel" hidden>
+      <section class="bloco">
+        <div class="filtros">
+          <div class="chips" role="group" aria-label="Período">
+            <button class="chip" data-periodo="hoje">Hoje</button>
+            <button class="chip" data-periodo="7">7 dias</button>
+            <button class="chip" data-periodo="30" aria-pressed="true">30 dias</button>
+            <button class="chip" data-periodo="tudo">Tudo</button>
+            <button class="chip" data-periodo="datas">Datas</button>
+          </div>
+          <div class="datas" id="datas" hidden>
+            <input class="input" type="date" id="de" aria-label="De"> até <input class="input" type="date" id="ate" aria-label="Até">
+          </div>
+          <select class="input" id="filtroLocal" aria-label="Espaço"><option value="">Todos os espaços</option></select>
+          <input class="input busca" id="busca" type="search" placeholder="Nome, CPF, telefone ou código" aria-label="Buscar">
+          <button class="btn secundario" id="btnCsv">Exportar planilha</button>
+        </div>
+      </section>
+
+      <div class="resumo">
+        <div class="tile"><span>Check-ins</span><strong id="totCheckins">0</strong></div>
+        <div class="tile"><span>Pessoas</span><strong id="totPessoas">0</strong></div>
+        <div class="tile"><span>Termos aceitos</span><strong id="totAceites">0</strong></div>
+      </div>
+
+      <section class="bloco" id="lista" aria-live="polite"></section>
+    </div>
+  </main>
+
+  <dialog id="ficha" aria-labelledby="fichaTitulo"></dialog>
+  <div id="impressao"></div>
+
+  <script src="/consulta.js"></script>
+</body>
+</html>
