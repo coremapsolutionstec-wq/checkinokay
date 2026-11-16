@@ -81,8 +81,18 @@
     const fmtCpf = (c) => c.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
     let checkins = [];
 
+    // O painel é público; os dados exigem login (o navegador mostra a janela de usuário/senha).
+    async function apiAdmin(caminho, opcoes) {
+      const r = await fetch(location.origin + caminho, opcoes);
+      if (r.status === 401) {
+        document.querySelector('main').innerHTML = '<section class="bloco"><h2>Acesso restrito</h2><p class="dica">Usuário ou senha incorretos.</p><button class="btn primario" onclick="location.reload()">Entrar novamente</button></section>';
+        throw new Error('não autorizado');
+      }
+      return r;
+    }
+
     async function carregarLocais() {
-      const locais = await fetch(location.origin + '/api/admin/locais').then((r) => r.json());
+      const locais = await apiAdmin('/api/admin/locais').then((r) => r.json());
       const grade = $('#gradeQr');
       grade.innerHTML = '';
       for (const l of locais) {
@@ -102,7 +112,7 @@
           if (acao === 'imprimir') { card.classList.add('imprimindo'); window.print(); card.classList.remove('imprimindo'); }
           if (acao === 'copiar') { await navigator.clipboard.writeText(l.url); ev.target.textContent = 'Copiado!'; setTimeout(() => (ev.target.textContent = 'Copiar link'), 1500); }
           if (acao === 'excluir' && confirm(`Excluir o espaço "${l.nome}"? O QR Code dele deixará de funcionar.`)) {
-            await fetch(location.origin + '/api/admin/locais/' + encodeURIComponent(l.id), { method: 'DELETE' });
+            await apiAdmin('/api/admin/locais/' + encodeURIComponent(l.id), { method: 'DELETE' });
             carregarLocais();
           }
         });
@@ -113,7 +123,7 @@
     $('#formLocal').addEventListener('submit', async (ev) => {
       ev.preventDefault();
       const f = new FormData(ev.target);
-      const r = await fetch(location.origin + '/api/admin/locais', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome: f.get('nome'), capacidade: f.get('capacidade') }) });
+      const r = await apiAdmin('/api/admin/locais', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome: f.get('nome'), capacidade: f.get('capacidade') }) });
       const j = await r.json();
       $('#erroLocal').textContent = r.ok ? '' : j.erro;
       if (r.ok) { ev.target.reset(); carregarLocais(); }
@@ -136,7 +146,7 @@
     }
 
     async function carregarCheckins() {
-      checkins = await fetch(location.origin + '/api/admin/checkins').then((r) => r.json());
+      checkins = await apiAdmin('/api/admin/checkins').then((r) => r.json());
       renderTabela();
     }
 
@@ -148,9 +158,8 @@
     });
     $('#zoom').addEventListener('click', () => $('#zoom').close());
 
-    carregarLocais();
-    carregarCheckins();
-    setInterval(carregarCheckins, 15000);
+    // Em sequência: a primeira chamada pede o login, as seguintes reaproveitam.
+    carregarLocais().then(carregarCheckins).then(() => setInterval(() => carregarCheckins().catch(() => {}), 15000)).catch(() => {});
   </script>
 </body>
 </html>

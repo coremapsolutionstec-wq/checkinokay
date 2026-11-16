@@ -6,7 +6,7 @@ Check-in para espaços privados (salas de reunião, coworking).
 
 ## Rodar
 
-Requer Node.js 20+ (sem dependências para instalar).
+Requer Node.js 20+. O servidor Node não precisa de `npm install` (a única dependência, `@netlify/blobs`, é usada só no Netlify).
 
 ```bash
 cp .env.example .env     # ajuste ADMIN_PASSWORD e CPF_PROVIDER
@@ -39,7 +39,22 @@ O token do provedor fica só no servidor. Os nomes salvos no check-in vêm do se
 
 Os celulares só liberam a câmera para a selfie em **HTTPS**. O sistema grava os dados em disco (`data/`), então precisa de um servidor com disco que não se apague, como um VPS.
 
-### VPS Ubuntu + Caddy (recomendado)
+### Netlify (publicado em https://acknowledge-f8fa5d.netlify.app)
+
+No Netlify não existe disco, então as páginas ficam em `public/`, a API roda como função ([netlify/functions/api.mjs](netlify/functions/api.mjs)) e check-ins, selfies e espaços ficam no **Netlify Blobs** (loja `okay-checkin`). O HTTPS é automático.
+
+- **Variáveis** (Project configuration → Environment variables): `ADMIN_PASSWORD`, `QR_SECRET`, `CPF_PROVIDER=serpro`, `SERPRO_TRIAL`, e em produção `SERPRO_CONSUMER_KEY`/`SERPRO_CONSUMER_SECRET`. Depois de mudar uma variável, publique de novo.
+- **Publicar** uma nova versão (com a pasta vinculada via `netlify link`):
+
+```bash
+npm install
+npx netlify-cli deploy --prod
+```
+
+- **Não troque o `QR_SECRET`**: se ele mudar, todos os QR Codes impressos param de funcionar.
+- Limitação: o limite de consultas de CPF por IP vale por instância da função, então é menos rígido que no VPS.
+
+### VPS Ubuntu + Caddy
 
 1. No painel do domínio, crie um registro **A**: `checkin` → IP do VPS.
 2. No VPS, por SSH:
@@ -78,7 +93,7 @@ Tudo fica em `data/` (fora do git):
 - `locais.json`: espaços e capacidade
 - `checkins.json`: registros (titular, participantes, aceite do termo com hash do texto, data, IP)
 - `selfies/`: fotos (acessíveis só pelo admin)
-- `termo.md`: texto do termo (edite à vontade)
+- `termo.md`: texto do termo (edite à vontade; o padrão está em `lib/termo-padrao.js`)
 - `secret.txt`: segredo dos QR Codes (se for trocado, todos os QR Codes precisam ser reimpressos)
 
 Dados pessoais (CPF + selfie) estão sujeitos à LGPD: defina um prazo de retenção e um canal para pedidos dos titulares.

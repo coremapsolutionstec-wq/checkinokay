@@ -7,7 +7,7 @@
 
   const estado = {
     local: null,
-    titular: null,          // { cpf, cpfMascarado, nome, situacao }
+    titular: null,          // { cpf, cpfMascarado, nome, situacao, token }
     participantes: [],
     selfie: null,           // dataURL
     stream: null,
@@ -333,8 +333,8 @@
       const r = await api('/api/checkin', {
         l: QR.l,
         k: QR.k,
-        titular: estado.titular.cpf,
-        participantes: estado.participantes.map((p) => p.cpf),
+        // Comprovantes assinados pelo servidor na consulta de cada CPF (titular primeiro)
+        pessoas: [estado.titular, ...estado.participantes].map((p) => p.token),
         aceite: $('#aceite').checked,
         selfie: estado.selfie,
       });

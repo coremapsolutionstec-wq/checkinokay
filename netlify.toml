@@ -1,0 +1,24 @@
+# Publicação no Netlify: páginas estáticas em public/ e a API em netlify/functions/api.mjs.
+# Variáveis obrigatórias no Netlify (Project configuration → Environment variables):
+#   ADMIN_PASSWORD, QR_SECRET, CPF_PROVIDER=serpro, SERPRO_TRIAL (true/false),
+#   SERPRO_CONSUMER_KEY e SERPRO_CONSUMER_SECRET (produção)
+[build]
+  publish = "public"
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+
+[[redirects]]
+  from = "/admin"
+  to = "/admin.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "no-referrer"
+    Permissions-Policy = "camera=(self), microphone=(), geolocation=()"
+    Strict-Transport-Security = "max-age=31536000"
