@@ -1,0 +1,14 @@
+{
+  "name": "okay-checkin",
+  "version": "1.0.0",
+  "description": "Sistema de check-in OKAY: QR Code, consulta de CPF, termo, participantes e selfie",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

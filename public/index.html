@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#111111">
+  <title>Check-in OKAY</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topo">
+    <div class="marca" aria-label="OKAY">OKAY<span>.</span></div>
+    <div class="local" id="nomeLocal"></div>
+  </header>
+
+  <ol class="passos" id="passos" hidden>
+    <li data-p="1">CPF</li>
+    <li data-p="2">Participantes</li>
+    <li data-p="3">Termo</li>
+    <li data-p="4">Selfie</li>
+  </ol>
+
+  <main>
+    <!-- Carregando -->
+    <section class="tela ativa" id="t-carregando">
+      <div class="spinner" aria-label="Carregando"></div>
+    </section>
+
+    <!-- Sem QR / QR inválido -->
+    <section class="tela" id="t-qr">
+      <div class="icone-grande" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 17h4v4h-4"/></svg>
+      </div>
+      <h1>Escaneie o QR Code</h1>
+      <p class="sub" id="msgQr">Para fazer o check-in, aponte a câmera do seu celular para o QR Code na entrada do espaço.</p>
+    </section>
+
+    <!-- Início -->
+    <section class="tela" id="t-inicio">
+      <h1>Olá! Vamos fazer seu check-in.</h1>
+      <p class="sub">Leva menos de um minuto. Você vai precisar do seu CPF, do CPF dos participantes e de uma selfie.</p>
+      <button class="btn primario" id="btnIniciar">Iniciar check-in</button>
+    </section>
+
+    <!-- Passo 1: CPF do titular -->
+    <section class="tela" id="t-cpf">
+      <h1>Qual é o seu CPF?</h1>
+      <p class="sub">Vamos buscar seu nome completo na base da Receita Federal.</p>
+      <form id="formCpf" class="campo-linha" autocomplete="off" novalidate>
+        <input id="cpfTitular" class="input cpf" inputmode="numeric" placeholder="000.000.000-00" maxlength="14" aria-label="CPF" required>
+        <button class="btn primario" type="submit">Buscar</button>
+      </form>
+      <p class="erro" id="erroCpf" role="alert"></p>
+
+      <div class="cartao-pessoa" id="cartaoTitular" hidden>
+        <span class="rotulo">Nome encontrado</span>
+        <strong class="nome" id="nomeTitular"></strong>
+        <span class="detalhe" id="detTitular"></span>
+        <div class="acoes">
+          <button class="btn secundario" id="btnNaoSou">Não sou eu</button>
+          <button class="btn primario" id="btnSouEu">Sou eu, continuar</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Passo 2: Participantes -->
+    <section class="tela" id="t-participantes">
+      <h1>Quem vai com você?</h1>
+      <p class="sub">Adicione os participantes pelo CPF. Se estiver sozinho, é só continuar.</p>
+      <ul class="lista-pessoas" id="listaPessoas"></ul>
+      <form id="formPart" class="campo-linha" autocomplete="off" novalidate>
+        <input id="cpfPart" class="input cpf" inputmode="numeric" placeholder="CPF do participante" maxlength="14" aria-label="CPF do participante">
+        <button class="btn secundario" type="submit">Adicionar</button>
+      </form>
+      <p class="erro" id="erroPart" role="alert"></p>
+      <p class="dica" id="capacidade"></p>
+      <div class="rodape-acoes">
+        <button class="btn fantasma" data-voltar="t-cpf">Voltar</button>
+        <button class="btn primario" id="btnParaTermo">Continuar</button>
+      </div>
+    </section>
+
+    <!-- Passo 3: Termo -->
+    <section class="tela" id="t-termo">
+      <h1>Termo de uso</h1>
+      <div class="termo" id="textoTermo" tabindex="0"></div>
+      <label class="check">
+        <input type="checkbox" id="aceite">
+        <span>Li e concordo com o termo de uso, em meu nome e em nome dos participantes.</span>
+      </label>
+      <div class="rodape-acoes">
+        <button class="btn fantasma" data-voltar="t-participantes">Voltar</button>
+        <button class="btn primario" id="btnConfirmar" disabled>Confirmar</button>
+      </div>
+    </section>
+
+    <!-- Passo 4: Selfie -->
+    <section class="tela" id="t-selfie">
+      <h1>Agora, uma selfie</h1>
+      <p class="sub" id="subSelfie">Reúna todos na foto, se possível.</p>
+      <div class="camera">
+        <video id="video" playsinline autoplay muted></video>
+        <img id="foto" alt="Sua selfie" hidden>
+        <div class="camera-msg" id="cameraMsg" hidden></div>
+      </div>
+      <input type="file" id="arquivoSelfie" accept="image/*" capture="user" hidden>
+      <p class="erro" id="erroSelfie" role="alert"></p>
+      <div class="rodape-acoes">
+        <button class="btn secundario" id="btnRefazer" hidden>Tirar outra</button>
+        <button class="btn primario" id="btnCapturar">Tirar foto</button>
+        <button class="btn primario" id="btnEnviar" hidden>Concluir check-in</button>
+      </div>
+    </section>
+
+    <!-- Fim -->
+    <section class="tela" id="t-fim">
+      <div class="check-ok" aria-hidden="true">
+        <svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24"/><path d="M15 27l7 7 15-15"/></svg>
+      </div>
+      <h1 class="boas-vindas">Seja bem-vindo ao OKAY!</h1>
+      <p class="sub" id="subFim"></p>
+      <ul class="lista-nomes" id="nomesFim"></ul>
+      <p class="dica" id="codigoFim"></p>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

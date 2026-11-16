@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin OKAY</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    main { max-width: 1100px; }
+    .topo { max-width: 1100px; }
+    .bloco { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 22px; margin-bottom: 20px; box-shadow: var(--sombra); }
+    .bloco h2 { margin: 0 0 4px; font-size: 20px; }
+    .grade-qr { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin-top: 16px; }
+    .qr-card { border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; text-align: center; background: var(--bg); }
+    .qr-card .qr { background: #fff; padding: 12px; border-radius: 10px; display: inline-block; }
+    .qr-card .qr img, .qr-card .qr canvas { display: block; width: 168px; height: 168px; }
+    .qr-card h3 { margin: 10px 0 2px; font-size: 16px; }
+    .qr-card .acoes-qr { display: flex; gap: 6px; justify-content: center; margin-top: 10px; flex-wrap: wrap; }
+    .qr-card .acoes-qr .btn { min-height: 36px; padding: 6px 12px; font-size: 13px; }
+    .form-local { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+    .form-local .input { font-size: 16px; letter-spacing: 0; }
+    .form-local .input[type=number] { max-width: 120px; flex: none; }
+    .tabela-wrap { overflow-x: auto; margin-top: 14px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-2); font-weight: 600; }
+    td img { width: 64px; height: 64px; object-fit: cover; border-radius: 10px; cursor: zoom-in; display: block; }
+    .pill { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--bg); border: 1px solid var(--line); margin: 2px 2px 0 0; }
+    .barra { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+    .barra .input { font-size: 15px; letter-spacing: 0; min-height: 42px; max-width: 280px; }
+    dialog { border: 0; padding: 0; border-radius: 16px; background: transparent; max-width: 92vw; }
+    dialog img { max-width: 92vw; max-height: 86vh; display: block; border-radius: 16px; }
+    dialog::backdrop { background: rgba(0,0,0,.75); }
+    @media print {
+      body * { visibility: hidden; }
+      .imprimindo, .imprimindo * { visibility: visible; }
+      .imprimindo { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 0; background: #fff; color: #000; }
+      .imprimindo .qr img, .imprimindo .qr canvas { width: 9cm !important; height: 9cm !important; }
+      .imprimindo .acoes-qr { display: none !important; }
+      .imprimindo h3 { font-size: 28px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topo">
+    <div class="marca">OKAY<span>.</span> <small style="font-size:14px;font-weight:600;color:var(--ink-2);letter-spacing:0">admin</small></div>
+  </header>
+  <main>
+    <section class="bloco">
+      <h2>QR Codes dos espaços</h2>
+      <p class="dica" style="margin:0">Imprima e fixe na entrada. O check-in só começa com a leitura de um QR Code válido.</p>
+      <div class="grade-qr" id="gradeQr"></div>
+      <form class="form-local" id="formLocal">
+        <input class="input" name="nome" placeholder="Nome do novo espaço (ex.: Sala 3)" required>
+        <input class="input" name="capacidade" type="number" min="1" max="500" value="8" title="Capacidade">
+        <button class="btn primario" type="submit">Adicionar espaço</button>
+      </form>
+      <p class="erro" id="erroLocal"></p>
+    </section>
+
+    <section class="bloco">
+      <div class="barra">
+        <h2>Check-ins</h2>
+        <input class="input" id="busca" placeholder="Buscar nome, CPF ou espaço">
+      </div>
+      <div class="tabela-wrap">
+        <table>
+          <thead><tr><th>Selfie</th><th>Data</th><th>Espaço</th><th>Titular</th><th>Participantes</th><th>Código</th></tr></thead>
+          <tbody id="corpoTabela"><tr><td colspan="6" class="dica">Carregando…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+  <dialog id="zoom"><img alt="Selfie ampliada"></dialog>
+
+  <script>
+    const $ = (s) => document.querySelector(s);
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const fmtCpf = (c) => c.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+    let checkins = [];
+
+    async function carregarLocais() {
+      const locais = await fetch(location.origin + '/api/admin/locais').then((r) => r.json());
+      const grade = $('#gradeQr');
+      grade.innerHTML = '';
+      for (const l of locais) {
+        const card = document.createElement('div');
+        card.className = 'qr-card';
+        card.innerHTML = `<div class="qr"></div><h3>${esc(l.nome)}</h3><div class="dica" style="margin:0">Capacidade: ${l.capacidade}</div>
+          <div class="acoes-qr">
+            <button class="btn secundario" data-acao="imprimir">Imprimir</button>
+            <a class="btn secundario" href="${esc(l.url)}" target="_blank" rel="noopener" style="text-decoration:none">Abrir</a>
+            <button class="btn fantasma" data-acao="copiar">Copiar link</button>
+            <button class="btn fantasma" data-acao="excluir">Excluir</button>
+          </div>`;
+        if (window.QRCode) new QRCode(card.querySelector('.qr'), { text: l.url, width: 336, height: 336, correctLevel: QRCode.CorrectLevel.M });
+        else card.querySelector('.qr').textContent = 'Biblioteca de QR indisponível (sem internet?)';
+        card.addEventListener('click', async (ev) => {
+          const acao = ev.target.dataset.acao;
+          if (acao === 'imprimir') { card.classList.add('imprimindo'); window.print(); card.classList.remove('imprimindo'); }
+          if (acao === 'copiar') { await navigator.clipboard.writeText(l.url); ev.target.textContent = 'Copiado!'; setTimeout(() => (ev.target.textContent = 'Copiar link'), 1500); }
+          if (acao === 'excluir' && confirm(`Excluir o espaço "${l.nome}"? O QR Code dele deixará de funcionar.`)) {
+            await fetch(location.origin + '/api/admin/locais/' + encodeURIComponent(l.id), { method: 'DELETE' });
+            carregarLocais();
+          }
+        });
+        grade.appendChild(card);
+      }
+    }
+
+    $('#formLocal').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const f = new FormData(ev.target);
+      const r = await fetch(location.origin + '/api/admin/locais', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome: f.get('nome'), capacidade: f.get('capacidade') }) });
+      const j = await r.json();
+      $('#erroLocal').textContent = r.ok ? '' : j.erro;
+      if (r.ok) { ev.target.reset(); carregarLocais(); }
+    });
+
+    function pessoa(p) { return `<strong>${esc(p.nome)}</strong><br><span class="dica" style="font-size:12px">${fmtCpf(p.cpf)}${p.manual ? ' · manual' : ''}</span>`; }
+
+    function renderTabela() {
+      const q = $('#busca').value.trim().toLowerCase().replace(/[.\-]/g, '');
+      const lista = checkins.filter((c) => !q || JSON.stringify([c.local.nome, c.titular, c.participantes, c.id]).toLowerCase().includes(q));
+      $('#corpoTabela').innerHTML = lista.length ? lista.map((c) => `
+        <tr>
+          <td><img src="/selfies/${esc(c.selfie)}" alt="Selfie" loading="lazy"></td>
+          <td>${new Date(c.data).toLocaleString('pt-BR')}</td>
+          <td>${esc(c.local.nome)}</td>
+          <td>${pessoa(c.titular)}</td>
+          <td>${c.participantes.length ? c.participantes.map((p) => `<span class="pill">${esc(p.nome)} · ${fmtCpf(p.cpf)}</span>`).join('') : '<span class="dica">—</span>'}</td>
+          <td><code>${esc(c.id)}</code></td>
+        </tr>`).join('') : '<tr><td colspan="6" class="dica">Nenhum check-in ainda.</td></tr>';
+    }
+
+    async function carregarCheckins() {
+      checkins = await fetch(location.origin + '/api/admin/checkins').then((r) => r.json());
+      renderTabela();
+    }
+
+    $('#busca').addEventListener('input', renderTabela);
+    $('#corpoTabela').addEventListener('click', (ev) => {
+      if (ev.target.tagName !== 'IMG') return;
+      $('#zoom img').src = ev.target.src;
+      $('#zoom').showModal();
+    });
+    $('#zoom').addEventListener('click', () => $('#zoom').close());
+
+    carregarLocais();
+    carregarCheckins();
+    setInterval(carregarCheckins, 15000);
+  </script>
+</body>
+</html>
